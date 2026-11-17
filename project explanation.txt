@@ -1,0 +1,229 @@
+Smart-Seatbelt-Warning-System/
+│
+├── Verilog/
+│   ├── top.v
+│   ├── seatbelt_fsm.v
+│   ├── belt_length_check.v
+│   └── testbench.v
+│
+├── Constraints/
+│   └── top.xdc
+│
+├── Documentation/
+│   └── project_explanation.md
+│
+└── README.md
+
+
+
+
+
+ Smart Seatbelt Warning System Using FPGA
+
+## 1. Introduction
+
+The Smart Seatbelt Warning System is a digital hardware project implemented using Verilog HDL on the EDGE Artix-7 FPGA development board.
+
+The main objective is to improve seatbelt safety by checking passenger occupancy, ignition status, buckle status and simulated seatbelt length.
+
+The system identifies whether the seatbelt condition is SAFE or UNSAFE and provides visual and audible warnings accordingly.
+
+## 2. Problem Statement
+
+A conventional seatbelt warning system may only check whether the seatbelt buckle is locked.
+
+However, locking the buckle does not necessarily mean that the passenger is wearing the seatbelt properly.
+
+Our project introduces an additional length-checking condition along with buckle detection to demonstrate a more comprehensive seatbelt safety logic.
+
+## 3. Objectives
+
+- Check whether the ignition is ON or OFF.
+- Identify whether a passenger is seated.
+- Check whether the seatbelt buckle is locked.
+- Check whether the simulated belt length reaches a predefined threshold.
+- Activate warning indicators when safety conditions are not satisfied.
+
+## 4. Hardware Requirements
+
+- EDGE Artix-7 FPGA development board
+- Onboard switches
+- Green LED
+- Red LED
+- Onboard buzzer
+
+## 5. Software Requirements
+
+- Xilinx Vivado 2022.1
+- Verilog HDL
+
+## 6. Input Configuration
+
+The project uses five FPGA switches.
+
+| Input | Function | Description |
+|---|---|---|
+| SW0 | Ignition | Represents ignition ON/OFF |
+| SW1 | Occupancy | Represents passenger presence |
+| SW2 | Buckle | Represents buckle locked/unlocked |
+| SW3 | Length bit 0 | Least significant bit |
+| SW4 | Length bit 1 | Most significant bit |
+
+### Belt Length Representation
+
+Two switches represent the simulated belt length.
+
+The binary representation is:
+
+`belt_length = {SW4, SW3}`
+
+| SW4 | SW3 | Binary | Decimal | Interpretation |
+|---|---|---|---|---|
+| 0 | 0 | 00 | 0 | Invalid / below resting level |
+| 0 | 1 | 01 | 1 | Empty seatbelt resting position |
+| 1 | 0 | 10 | 2 | Minimum acceptable extension |
+| 1 | 1 | 11 | 3 | Sufficient extension |
+
+The predefined threshold is 2.
+
+## 7. System Architecture
+
+The project consists of three main Verilog modules:
+
+### 7.1 belt_length_check.v
+
+This module compares the simulated belt length with the predefined threshold.
+
+The comparison is:
+
+`length_ok = (belt_length >= THRESHOLD)`
+
+If the length is greater than or equal to 2, `length_ok` becomes HIGH (1). Otherwise, it becomes LOW (0).
+
+### 7.2 seatbelt_fsm.v
+
+This module implements a Finite State Machine (FSM) with three states:
+
+| State | Binary Encoding | Meaning |
+|---|---|---|
+| IDLE | 00 | Ignition OFF or nobody seated |
+| SAFE | 01 | All safety conditions satisfied |
+| UNSAFE | 10 | Safety conditions not satisfied |
+
+The FSM uses a clock to synchronize state transitions.
+
+The SAFE condition is:
+
+`SAFE = I AND P AND B AND L`
+
+The UNSAFE condition is:
+
+`UNSAFE = I AND P AND (NOT B OR NOT L)`
+
+Where:
+
+- I = Ignition
+- P = Passenger occupancy
+- B = Buckle status
+- L = Length sufficient
+
+If ignition is OFF or nobody is seated, the FSM enters IDLE.
+
+If ignition is ON and a passenger is seated, the FSM checks buckle status and belt length to determine SAFE or UNSAFE.
+
+### 7.3 top.v
+
+The top module integrates the length checker and FSM.
+
+It:
+- Receives inputs from FPGA switches.
+- Combines the two length bits.
+- Connects the length checker.
+- Passes the resulting length status to the FSM.
+- Connects the FSM outputs to the onboard LEDs and buzzer.
+
+## 8. Output Configuration
+
+| Output | Function |
+|---|---|
+| LED0 | Green LED – SAFE |
+| LED1 | Red LED – UNSAFE |
+| Buzzer | Audible warning – UNSAFE |
+
+Output behavior:
+
+| State | Green LED | Red LED | Buzzer |
+|---|---|---|---|
+| IDLE | OFF | OFF | OFF |
+| SAFE | ON | OFF | OFF |
+| UNSAFE | OFF | ON | ON |
+
+## 9. Working Principle
+
+The system operates in the following sequence:
+
+1. The FPGA receives ignition, occupancy, buckle and belt-length inputs through switches.
+2. The two length bits are combined into a 2-bit binary number.
+3. The length checker compares the value against the threshold of 2.
+4. The length-checking result is passed to the FSM.
+5. The FSM evaluates the ignition, occupancy, buckle and length conditions.
+6. The FSM enters IDLE, SAFE or UNSAFE.
+7. The green LED, red LED and buzzer respond according to the current state.
+
+## 10. Test Cases
+
+| Test | Ignition | Occupancy | Buckle | Length | Expected State |
+|---|---:|---:|---:|---|---|
+| Ignition OFF | 0 | 1 | 1 | 11 | IDLE |
+| Nobody seated | 1 | 0 | 1 | 11 | IDLE |
+| Buckle unlocked | 1 | 1 | 0 | 11 | UNSAFE |
+| Length = 0 | 1 | 1 | 1 | 00 | UNSAFE |
+| Length = 1 | 1 | 1 | 1 | 01 | UNSAFE |
+| Length = 2 | 1 | 1 | 1 | 10 | SAFE |
+| Length = 3 | 1 | 1 | 1 | 11 | SAFE |
+
+## 11. Simulation and Hardware Implementation
+
+The design is simulated using the Vivado behavioral simulation environment.
+
+The testbench applies different input combinations and verifies the resulting states and outputs.
+
+After successful simulation, the design can be synthesized, implemented and converted into a bitstream file.
+
+The bitstream is programmed onto the EDGE Artix-7 FPGA board for hardware testing.
+
+The XDC file defines the physical FPGA pin assignments and clock constraints.
+
+## 12. Advantages
+
+- Combines buckle detection with an additional length-checking condition.
+- Uses a Finite State Machine for organized control.
+- Demonstrates digital logic design using Verilog.
+- Can be tested through simulation before hardware implementation.
+- Provides both visual and audible warnings.
+
+## 13. Limitations
+
+- Passenger occupancy is simulated using a switch.
+- Buckle status is simulated using a switch.
+- Belt length is represented using two switches rather than a physical sensor.
+- The threshold is a predefined prototype value.
+- The system does not control an actual vehicle engine.
+
+## 14. Future Enhancements
+
+- Integrate a physical passenger occupancy sensor.
+- Use an actual buckle detection mechanism.
+- Integrate a sensor to measure seatbelt extension.
+- Improve the system using real-time sensor inputs.
+- Explore integration with vehicle safety systems.
+
+## 15. Conclusion
+
+The Smart Seatbelt Warning System demonstrates the implementation of a digital seatbelt safety monitoring concept using Verilog HDL and the EDGE Artix-7 FPGA.
+
+By combining a length comparator and a finite state machine, the system evaluates passenger occupancy, ignition status, buckle status and simulated belt length.
+
+It generates visual and audible warnings whenever the required safety conditions are not satisfied.
+
+This project demonstrates how FPGA technology and digital logic can be applied to develop safety-oriented electronic systems.
